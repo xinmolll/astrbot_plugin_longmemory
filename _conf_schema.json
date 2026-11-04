@@ -1,0 +1,167 @@
+{
+  "view_relation_notes": {
+    "type": "text",
+    "description": "【只读】对主人的印象 / 关系笔记",
+    "hint": "插件自动从关系笔记同步到这里，便于在 WebUI 查看。请勿手改；保存后也会被下次刷新覆盖。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
+  "view_latest_diary": {
+    "type": "text",
+    "description": "【只读】最近日记（今天及最近几篇）",
+    "hint": "自动同步主人最近几篇日记正文。不含密钥等敏感内容。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
+  "view_memory": {
+    "type": "text",
+    "description": "【只读】长期记忆摘要（偏好 / 事实 / 口吻）",
+    "hint": "自动同步已整理的长期记忆条目摘要。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
+  "view_updated_at": {
+    "type": "string",
+    "description": "【只读】快照刷新时间（Asia/Shanghai）",
+    "hint": "上一次把日记/印象写入本页的时间。",
+    "default": ""
+  },
+  "view_refresh_now": {
+    "type": "bool",
+    "description": "立即刷新上面的只读快照",
+    "hint": "勾选并保存后，插件会马上重读日记/印象并写回本页，然后自动取消勾选。",
+    "default": false
+  },
+  "memory_enabled": {
+    "type": "bool",
+    "description": "启用长期记忆",
+    "default": true
+  },
+  "learn_threshold": {
+    "type": "int",
+    "description": "累计多少条未整理的用户消息后自动整理记忆",
+    "default": 4
+  },
+  "inject_diaries": {
+    "type": "int",
+    "description": "对话时注入最近几篇日记（仅主人）",
+    "default": 2
+  },
+  "diary_enabled": {
+    "type": "bool",
+    "description": "启用每晚日记",
+    "default": true
+  },
+  "diary_time": {
+    "type": "string",
+    "description": "日记时间（Asia/Shanghai，HH:MM）",
+    "default": "23:30"
+  },
+  "owner_id": {
+    "type": "string",
+    "description": "主人 QQ（日记取材对象，可用管理命令）",
+    "hint": "必填。留空时不主动发消息、不追问，也不写每晚日记。",
+    "default": ""
+  },
+  "diary_session": {
+    "type": "string",
+    "description": "写日记时用来选模型/人格的会话 ID",
+    "hint": "建议填写，例如 napcat:FriendMessage:你的QQ号。留空时若已配置主人 QQ，则退回该私聊会话或已保存的会话。",
+    "default": ""
+  },
+  "send_diary_to_owner": {
+    "type": "bool",
+    "description": "写完日记后私聊发给主人（旧机器人不发送）",
+    "default": false
+  },
+  "relationship_enabled": {
+    "type": "bool",
+    "description": "启用关系笔记（隐式的亲近感，随聊天慢慢变化）",
+    "default": true
+  },
+  "proactive_enabled": {
+    "type": "bool",
+    "description": "主动找主人聊天（时间窗内，双方沉默随机间隔后）",
+    "default": true
+  },
+  "proactive_min_hours": {
+    "type": "float",
+    "description": "主动消息最短间隔（小时）",
+    "default": 0.5
+  },
+  "proactive_max_hours": {
+    "type": "float",
+    "description": "主动消息最长间隔（小时）",
+    "default": 1.0
+  },
+  "proactive_max_unanswered": {
+    "type": "int",
+    "description": "连续几条主动消息没回就暂停，直到他回复",
+    "default": 2
+  },
+  "faces_enabled": {
+    "type": "bool",
+    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）",
+    "default": true
+  },
+  "face_chance": {
+    "type": "float",
+    "description": "未指定表情时随机补一个的概率",
+    "default": 0.08
+  },
+  "relation_update_every": {
+    "type": "int",
+    "description": "每多少条用户私聊后改写一次关系笔记",
+    "default": 3
+  },
+  "stickers_enabled": {
+    "type": "bool",
+    "description": "发送机器人QQ号的收藏表情",
+    "default": true
+  },
+  "sticker_chance": {
+    "type": "float",
+    "description": "未指定时随机附带收藏表情的概率",
+    "default": 0.15
+  },
+  "sticker_fetch_count": {
+    "type": "int",
+    "description": "获取收藏表情的数量上限",
+    "default": 100
+  },
+  "sticker_vision_provider": {
+    "type": "string",
+    "description": "给表情识图用的模型ID（留空则只用手动标签）",
+    "default": "deepseek/deepseek-flash"
+  },
+  "proactive_start_hour": {
+    "type": "int",
+    "description": "主动消息开始时间（时，Asia/Shanghai）",
+    "default": 6
+  },
+  "proactive_end_hour": {
+    "type": "int",
+    "description": "主动消息结束时间（时，24=午夜）",
+    "default": 24
+  },
+  "followup_enabled": {
+    "type": "bool",
+    "description": "话题未完时短时追问一次（几分钟内）",
+    "default": true
+  },
+  "followup_min_minutes": {
+    "type": "float",
+    "description": "追问最短等待（分钟）",
+    "default": 3
+  },
+  "followup_max_minutes": {
+    "type": "float",
+    "description": "追问最长等待（分钟）",
+    "default": 5
+  },
+  "followup_max_per_silence": {
+    "type": "int",
+    "description": "同一段沉默最多追问几次",
+    "default": 2
+  }
+}
