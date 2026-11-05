@@ -1,6 +1,6 @@
 name: astrbot_plugin_longmemory
 display_name: 长期记忆与日记
 desc: 私聊长期记忆（偏好/事实/口吻，带原话佐证）+ 每晚定时用当前人格写日记。移植自自制 QQ 机器人。
-version: v1.5.1
-author: xinmolll
+version: v1.5.2
+author: 苒信
 repo: https://github.com/xinmolll/astrbot_plugin_longmemory
