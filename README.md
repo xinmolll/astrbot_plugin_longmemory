@@ -17,3 +17,6 @@ https://github.com/xinmolll/astrbot_plugin_longmemory
 - **diary_session**：写日记、选择模型/人格时使用的会话 ID，格式如 `napcat:FriendMessage:你的QQ号`。留空时，若已填写 owner_id，会退回 `napcat:FriendMessage:<owner_id>`，或使用已经私聊过、保存在关系笔记里的会话；两者都没有时跳过写日记和主动发送。
 
 日记时间、是否把写好的日记私聊发给主人、主动消息的时间窗和间隔等，可按需要再改。
+
+## 固定背景
+可以把 `about_owner.md` 放在插件目录（与 `main.py` 同级），写入不会被自动整理覆盖的固定背景。聊天注入时，这份内容会放在长期记忆前面，只对主人生效。按用户区分的背景放在数据目录 `about/<用户ID>.md`。
