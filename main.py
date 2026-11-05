@@ -137,7 +137,7 @@ def strip_fence(t: str) -> str:
     return m.group(0) if m else t
 
 
-@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.5.0")
+@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.5.1")
 class LongMemory(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -578,6 +578,7 @@ class LongMemory(Star):
         r["topic_hint"] = ""
         r["followup_due_at"] = None
         r["followup_sent"] = 0
+        r["topic_check_due_at"] = None
 
     def _heuristic_topic_open(self, bot_text: str) -> tuple[bool, str]:
         t = (bot_text or "").strip()
@@ -642,6 +643,20 @@ class LongMemory(Star):
         if not uid:
             return
         r = self.load_rel(uid)
+        chk = r.get("topic_check_due_at")
+        if chk:
+            try:
+                now_c = dt.datetime.now(dt.timezone.utc)
+                if now_c >= dt.datetime.fromisoformat(chk):
+                    r["topic_check_due_at"] = None
+                    self.save_rel(uid, r)
+                    lu, lb = r.get("last_user_at"), r.get("last_bot_at")
+                    if not lu or not lb or dt.datetime.fromisoformat(lu) < dt.datetime.fromisoformat(lb):
+                        await self.assess_topic_open(uid, r.get("topic_check_umo") or r.get("umo") or "",
+                                                     r.get("topic_check_text") or "")
+                    r = self.load_rel(uid)
+            except Exception as e:
+                logger.error(f"[longmemory] 延迟话题判定失败: {e}")
         if not r.get("topic_open"):
             return
         max_per = int(self.cfg("followup_max_per_silence", 2))
@@ -898,12 +913,15 @@ class LongMemory(Star):
             if self.cfg("memory_enabled", True):
                 self.record(uid, "assistant", resp.completion_text or "")
             r = self.load_rel(uid)
-            r["last_bot_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
-            self.save_rel(uid, r)
+            now_utc = dt.datetime.now(dt.timezone.utc)
+            r["last_bot_at"] = now_utc.isoformat()
             if self.cfg("followup_enabled", True) and self._is_owner(uid):
-                asyncio.create_task(
-                    self.assess_topic_open(uid, event.unified_msg_origin, resp.completion_text or "")
-                )
+                # 不立刻判断话题；他隔一会儿没回时再判断，省掉每条回复一次的调用
+                delay = float(self.cfg("followup_check_minutes", 1.5))
+                r["topic_check_due_at"] = (now_utc + dt.timedelta(minutes=delay)).isoformat()
+                r["topic_check_text"] = (resp.completion_text or "")[:300]
+                r["topic_check_umo"] = event.unified_msg_origin
+            self.save_rel(uid, r)
         except Exception as e:
             logger.error(f"[longmemory] 记录回复失败: {e}")
         if self.cfg("memory_enabled", True):

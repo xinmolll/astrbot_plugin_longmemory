@@ -20,5 +20,7 @@ https://github.com/xinmolll/astrbot_plugin_longmemory
 
 v1.5.0：同一段聊天内（默认沉默 30 分钟算新一段，最长 3 小时）记忆、背景和关系笔记的注入保持不变，让 DeepSeek 等服务商的前缀缓存能命中，省 token；新记忆在下一段聊天生效。可用 ctx_refresh_idle_minutes / ctx_refresh_max_hours 调整。
 
+v1.5.1：话题是否聊完改为他隔一会儿（followup_check_minutes，默认 1.5 分钟）没回才判断，不再每条回复都调一次模型。
+
 ## 固定背景
 可以把 `about_owner.md` 放在插件目录（与 `main.py` 同级），写入不会被自动整理覆盖的固定背景。聊天注入时，这份内容会放在长期记忆前面，只对主人生效。按用户区分的背景放在数据目录 `about/<用户ID>.md`。

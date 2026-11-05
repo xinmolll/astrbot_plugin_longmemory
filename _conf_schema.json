@@ -174,5 +174,11 @@
     "description": "注入内容最长多少小时强制刷新一次",
     "type": "int",
     "default": 3
+  },
+  "followup_check_minutes": {
+    "description": "他多少分钟没回才判断话题是否没聊完",
+    "type": "float",
+    "default": 1.5,
+    "hint": "不再每条回复都判断，省 token；需小于追问最短等待时间"
   }
 }
