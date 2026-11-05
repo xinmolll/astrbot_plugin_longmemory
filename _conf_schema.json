@@ -163,5 +163,22 @@
     "type": "int",
     "description": "同一段沉默最多追问几次",
     "default": 2
+  },
+  "ctx_refresh_idle_minutes": {
+    "description": "沉默多少分钟后算新一段聊天并刷新注入内容",
+    "type": "int",
+    "default": 30,
+    "hint": "同一段聊天内记忆/关系笔记的注入保持不变，提高模型前缀缓存命中、省钱"
+  },
+  "ctx_refresh_max_hours": {
+    "description": "注入内容最长多少小时强制刷新一次",
+    "type": "int",
+    "default": 3
+  },
+  "followup_check_minutes": {
+    "description": "他多少分钟没回才判断话题是否没聊完",
+    "type": "float",
+    "default": 1.5,
+    "hint": "不再每条回复都判断，省 token；需小于追问最短等待时间"
   }
 }
