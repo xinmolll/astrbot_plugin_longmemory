@@ -60,12 +60,14 @@
   "owner_id": {
     "type": "string",
     "description": "主人 QQ（日记取材对象，可用管理命令）",
-    "default": "2894294618"
+    "hint": "必填。留空时不主动发消息、不追问，也不写每晚日记。",
+    "default": ""
   },
   "diary_session": {
     "type": "string",
     "description": "写日记时用来选模型/人格的会话 ID",
-    "default": "napcat:FriendMessage:2894294618"
+    "hint": "建议填写，例如 napcat:FriendMessage:你的QQ号。留空时若已配置主人 QQ，则退回该私聊会话或已保存的会话。",
+    "default": ""
   },
   "send_diary_to_owner": {
     "type": "bool",
@@ -99,7 +101,7 @@
   },
   "faces_enabled": {
     "type": "bool",
-    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）",
+    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）。关闭后不发送系统表情，但仍会去掉私聊里残留的 [face:数字]。",
     "default": true
   },
   "face_chance": {

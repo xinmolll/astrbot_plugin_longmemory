@@ -179,11 +179,64 @@ class LongMemory(Star):
 
     @property
     def owner(self) -> str:
-        return str(self.cfg("owner_id", "2894294618")).strip()
+        return str(self.cfg("owner_id", "") or "").strip()
+
+    def _is_owner(self, uid) -> bool:
+        owner = self.owner
+        return bool(owner) and str(uid) == owner
+
+    def _session_prefer_saved(self, uid: str, saved=None) -> str:
+        """主动消息等：已保存会话优先，其次 diary_session，最后按主人 QQ 拼私聊会话。"""
+        saved_s = str(saved or "").strip()
+        if saved_s:
+            return saved_s
+        cfg = str(self.cfg("diary_session", "") or "").strip()
+        if cfg:
+            return cfg
+        uid_s = str(uid or "").strip()
+        return f"napcat:FriendMessage:{uid_s}" if uid_s else ""
+
+    def _session_prefer_config(self, uid: str, saved=None) -> str:
+        """写日记：diary_session 优先，其次已保存会话，最后按主人 QQ 拼私聊会话。"""
+        cfg = str(self.cfg("diary_session", "") or "").strip()
+        if cfg:
+            return cfg
+        saved_s = str(saved or "").strip()
+        if saved_s:
+            return saved_s
+        uid_s = str(uid or "").strip()
+        return f"napcat:FriendMessage:{uid_s}" if uid_s else ""
+
+    def _touch_views_synced(self) -> None:
+        try:
+            self._views_synced_at = asyncio.get_running_loop().time()
+        except RuntimeError:
+            self._views_synced_at = 0.0
 
     def sync_config_views(self, force: bool = False) -> None:
         """把日记/印象/记忆摘要写入配置，供 WebUI 插件设置页只读查看。"""
         uid = self.owner
+        if not uid:
+            stamp = dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S") + " Asia/Shanghai"
+            mapping = {
+                "view_relation_notes": "（未配置 owner_id，暂无印象）",
+                "view_latest_diary": "（未配置 owner_id，暂无日记）",
+                "view_memory": "（未配置 owner_id，暂无长期记忆）",
+                "view_updated_at": stamp,
+            }
+            changed = bool(force) or bool(self.config.get("view_refresh_now"))
+            for k, v in mapping.items():
+                if self.config.get(k) != v:
+                    self.config[k] = v
+                    changed = True
+            if self.config.get("view_refresh_now"):
+                self.config["view_refresh_now"] = False
+                changed = True
+            if changed:
+                self.config.save_config()
+                self._touch_views_synced()
+                logger.info("[longmemory] 未配置 owner_id，已跳过印象/日记/记忆快照")
+            return
         r = self.load_rel(uid)
         notes = (r.get("notes") or "").strip() or "（暂无关系笔记）"
         if SENSITIVE.search(notes):
@@ -236,10 +289,7 @@ class LongMemory(Star):
             changed = True
         if changed:
             self.config.save_config()
-            try:
-                self._views_synced_at = asyncio.get_running_loop().time()
-            except RuntimeError:
-                self._views_synced_at = 0.0
+            self._touch_views_synced()
             logger.info("[longmemory] 已刷新 WebUI 只读快照（印象/日记/记忆）")
 
     # ---------- storage ----------
@@ -329,6 +379,9 @@ class LongMemory(Star):
             return
         try:
             o = self.owner
+            if not o:
+                logger.info("[longmemory] 未配置 owner_id，跳过初始数据导入")
+                return
             if (src / "memory.json").exists() and not self.mem_file(o).exists():
                 old = json.loads((src / "memory.json").read_text(encoding="utf-8"))
                 m = {c: [] for c in CATS}
@@ -467,10 +520,14 @@ class LongMemory(Star):
         if not self.cfg("proactive_enabled", True):
             return
         uid = self.owner
+        if not uid:
+            return
         r = self.load_rel(uid)
         now_utc = dt.datetime.now(dt.timezone.utc)
         now = now_utc.astimezone(TZ)
-        umo = r.get("umo") or str(self.cfg("diary_session", f"napcat:FriendMessage:{uid}"))
+        umo = self._session_prefer_saved(uid, r.get("umo"))
+        if not umo:
+            return
         times = [dt.datetime.fromisoformat(x) for x in (r.get("last_user_at"), r.get("last_bot_at")) if x]
         if not times:
             # 第一次运行：从现在开始计时
@@ -559,7 +616,7 @@ class LongMemory(Star):
 
     async def assess_topic_open(self, uid, umo, bot_text: str = ""):
         """后台判断刚结束的回复是否留下未完成话题；失败时用启发式。"""
-        if not self.cfg("followup_enabled", True) or uid != self.owner:
+        if not self.cfg("followup_enabled", True) or not self._is_owner(uid):
             return
         try:
             dialog = self.recent_dialog(uid, 8)
@@ -604,6 +661,8 @@ class LongMemory(Star):
         if not self.cfg("followup_enabled", True):
             return
         uid = self.owner
+        if not uid:
+            return
         r = self.load_rel(uid)
         chk = r.get("topic_check_due_at")
         if chk:
@@ -642,7 +701,10 @@ class LongMemory(Star):
         eh = int(self.cfg("proactive_end_hour", 24))
         if not (sh <= now.hour < eh):
             return
-        umo = r.get("umo") or str(self.cfg("diary_session", f"napcat:FriendMessage:{uid}"))
+        umo = self._session_prefer_saved(uid, r.get("umo"))
+        if not umo:
+            logger.info("[longmemory] 未配置 diary_session，跳过追问")
+            return
         ok, why = self._umo_ok(umo)
         if not ok:
             logger.warning(f"[longmemory] 不能追问: {why}")
@@ -792,7 +854,7 @@ class LongMemory(Star):
         """读取关于对方的固定背景资料（不参与记忆整理，不会被冲掉）。"""
         for f in (self.root / "about" / f"{safe(uid)}.md", Path(__file__).parent / "about_owner.md"):
             try:
-                if f.exists() and (uid == self.owner or f.parent.name == "about"):
+                if f.exists() and (self._is_owner(uid) or f.parent.name == "about"):
                     t = f.read_text(encoding="utf-8").strip()
                     if t:
                         return ABOUT_HEAD + t[:12000]
@@ -806,7 +868,7 @@ class LongMemory(Star):
     def _context_text(self, uid) -> str:
         m = self.load_mem(uid)
         notes = {c: [i["text"] for i in m[c]] for c in CATS}
-        diaries = self.recent_diaries(uid, int(self.cfg("inject_diaries", 2))) if uid == self.owner else []
+        diaries = self.recent_diaries(uid, int(self.cfg("inject_diaries", 2))) if self._is_owner(uid) else []
         if not any(notes.values()) and not diaries:
             return ""
         return CONTEXT_HEAD + json.dumps({"memory": notes, "recentDiaries": [d[:2000] for d in diaries]}, ensure_ascii=False)
@@ -882,7 +944,7 @@ class LongMemory(Star):
             r = self.load_rel(uid)
             now_utc = dt.datetime.now(dt.timezone.utc)
             r["last_bot_at"] = now_utc.isoformat()
-            if self.cfg("followup_enabled", True) and uid == self.owner:
+            if self.cfg("followup_enabled", True) and self._is_owner(uid):
                 # 不立刻判断话题；他隔一会儿没回时再判断，省掉每条回复一次的调用
                 delay = float(self.cfg("followup_check_minutes", 1.5))
                 r["topic_check_due_at"] = (now_utc + dt.timedelta(minutes=delay)).isoformat()
@@ -907,11 +969,13 @@ class LongMemory(Star):
         """处理 [face:N] / 表情残留；关闭时只清洗，不发系统小黄豆。"""
         if not self._private(event):
             return
-        # webchat 不支持真正的 Face，跳过，避免测试污染
-        if event.get_platform_name() == "webchat":
-            return
         result = event.get_result()
         if not result or not getattr(result, "chain", None):
+            return
+        # webchat 不支持真正的 Face。系统表情开着时保持原文，避免测试污染；
+        # 关掉时仍要清掉 [face:N]，否则私聊里会露出编号明文。
+        webchat = event.get_platform_name() == "webchat"
+        if webchat and self.cfg("faces_enabled", True):
             return
         try:
             st_re = re.compile(r"\[sticker(?:[:：]\s*([^\]]{0,12}))?\]", re.I)
@@ -940,6 +1004,9 @@ class LongMemory(Star):
                     t = re.sub(r"[\s　]*\d{1,3}\s*$", "", t)
                     comp.text = t.strip()
             result.chain = [c for c in result.chain if not (isinstance(c, Plain) and not (c.text or "").strip())]
+            # 清洗之后不再发系统表情或收藏表情，避免 webchat 测试污染
+            if webchat:
+                return
             if not self.cfg("faces_enabled", True) and not self.cfg("stickers_enabled", True):
                 return
             if self.cfg("stickers_enabled", True) and self.load_stickers()["items"]:
@@ -1107,11 +1174,15 @@ class LongMemory(Star):
 
     async def write_diary(self, day=None, manual=False) -> str:
         uid = self.owner
+        if not uid:
+            return "未配置主人 QQ（owner_id），已跳过写日记"
         day = day or today()
         if not re.fullmatch(r"\d{4}-\d\d-\d\d", day):
             return "日期无效"
         async with self.diary_lock:
-            umo = str(self.cfg("diary_session", f"napcat:FriendMessage:{uid}"))
+            umo = self._session_prefer_config(uid, self.load_rel(uid).get("umo"))
+            if not umo:
+                return "未配置 diary_session，已跳过写日记"
             archived = self.records(uid, day)
             msgs = [r for r in archived if not r.get("imported")]
             st = self.diary_state()
@@ -1158,18 +1229,21 @@ class LongMemory(Star):
             except Exception as e:
                 logger.error(f"[longmemory] 写日记后刷新快照失败: {e}")
             if self.cfg("send_diary_to_owner", False):
-                try:
-                    from astrbot.api.event import MessageChain
-                    await self.context.send_message(umo, MessageChain().message(f"# {day}\n\n{entry}"))
-                except Exception as e:
-                    logger.error(f"[longmemory] 发送日记失败: {e}")
+                if not umo:
+                    logger.info("[longmemory] 未配置 diary_session，跳过发送日记")
+                else:
+                    try:
+                        from astrbot.api.event import MessageChain
+                        await self.context.send_message(umo, MessageChain().message(f"# {day}\n\n{entry}"))
+                    except Exception as e:
+                        logger.error(f"[longmemory] 发送日记失败: {e}")
             return entry
 
     async def _scheduler(self):
         await asyncio.sleep(30)
         while True:
             try:
-                if self.cfg("diary_enabled", True):
+                if self.cfg("diary_enabled", True) and self.owner:
                     uid = self.owner
                     st = self.diary_state().get(uid, {"startDate": today(), "days": {}})
                     now = dt.datetime.now(TZ)
@@ -1227,14 +1301,14 @@ class LongMemory(Star):
 
     # ---------- commands ----------
     def _allowed(self, event: AstrMessageEvent) -> bool:
-        return str(event.get_sender_id()) == self.owner or event.is_admin()
+        return self._is_owner(event.get_sender_id()) or event.is_admin()
 
     def _target(self, event):
         # QQ 主人看自己的；管理员（含 WebUI）默认看主人的，避免误看 webchat 空数据
         sid = str(event.get_sender_id())
-        if sid == self.owner:
+        if self._is_owner(sid):
             return sid
-        if event.is_admin():
+        if event.is_admin() and self.owner:
             return self.owner
         return sid
 
@@ -1291,9 +1365,9 @@ class LongMemory(Star):
             return
         uid = self._target(event)
         umo = event.unified_msg_origin
-        if uid == self.owner:
+        if self._is_owner(uid):
             r = self.load_rel(uid)
-            umo = r.get("umo") or str(self.cfg("diary_session", f"napcat:FriendMessage:{uid}"))
+            umo = self._session_prefer_saved(uid, r.get("umo")) or umo
         res = await self.learn(uid, umo, force=True)
         yield event.plain_result(res)
 
@@ -1305,6 +1379,9 @@ class LongMemory(Star):
     async def diary_read(self, event: AstrMessageEvent, day: str = ""):
         """查看日记：/diary read [YYYY-MM-DD]，默认最近一篇"""
         if not self._allowed(event):
+            return
+        if not self.owner:
+            yield event.plain_result("未配置主人 QQ（owner_id），没有可查看的日记。")
             return
         d = self.diary_dir(self.owner)
         files = sorted(d.glob("????-??-??.md")) if d.exists() else []
@@ -1391,8 +1468,14 @@ class LongMemory(Star):
         """检查主动消息的发送通道（不发送）"""
         if not self._allowed(event):
             return
+        if not self.owner:
+            yield event.plain_result(
+                "未配置主人 QQ（owner_id）。主动消息、追问和每晚日记已跳过。"
+                "请在插件设置中填写 owner_id；diary_session 建议填 napcat:FriendMessage:<QQ号>。"
+            )
+            return
         r = self.load_rel(self.owner)
-        umo = r.get("umo") or str(self.cfg("diary_session", f"napcat:FriendMessage:{self.owner}"))
+        umo = self._session_prefer_saved(self.owner, r.get("umo"))
         ok, why = self._umo_ok(umo)
         yield event.plain_result(
             f"主动消息: {'开' if self.cfg('proactive_enabled', True) else '关'}\n"
@@ -1414,8 +1497,8 @@ class LongMemory(Star):
         uid = self._target(event)
         r = self.load_rel(uid)
         umo = r.get("umo") or event.unified_msg_origin
-        if uid == self.owner:
-            umo = r.get("umo") or str(self.cfg("diary_session", f"napcat:FriendMessage:{uid}"))
+        if self._is_owner(uid):
+            umo = self._session_prefer_saved(uid, r.get("umo")) or umo
         ok = await self.update_relation(uid, umo)
         r2 = self.load_rel(uid)
         yield event.plain_result(("已改写。\n" if ok else "改写失败或没有新聊天。\n") + r2["notes"])
