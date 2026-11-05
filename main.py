@@ -137,7 +137,7 @@ def strip_fence(t: str) -> str:
     return m.group(0) if m else t
 
 
-@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.4.9")
+@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.5.0")
 class LongMemory(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -832,6 +832,29 @@ class LongMemory(Star):
             return ""
         return CONTEXT_HEAD + json.dumps({"memory": notes, "recentDiaries": [d[:2000] for d in diaries]}, ensure_ascii=False)
 
+    def _build_ctx(self, uid, event) -> str:
+        ctx = ""
+        if self.cfg("faces_enabled", True) and event.get_platform_name() != "webchat":
+            ctx += FACE_NOTE
+        if self.cfg("memory_enabled", True):
+            ctx += self.about_text(uid) + self._context_text(uid)
+        if self.cfg("relationship_enabled", True):
+            ctx += self.relation_text(uid)
+        return ctx
+
+    def _frozen_ctx(self, uid, event, fresh_session: bool) -> str:
+        """同一段聊天内保持注入内容不变，让模型服务商的前缀缓存能命中；
+        新的一段聊天（沉默较久）或快照过旧时才刷新。"""
+        cache = self.__dict__.setdefault("_ctx_cache", {})
+        loop = asyncio.get_event_loop()
+        now = loop.time()
+        hit = cache.get(uid)
+        max_age = float(self.cfg("ctx_refresh_max_hours", 3)) * 3600
+        if hit is None or fresh_session or now - hit[0] >= max_age:
+            hit = (now, self._build_ctx(uid, event))
+            cache[uid] = hit
+        return hit[1]
+
     @filter.on_llm_request()
     async def on_req(self, event: AstrMessageEvent, req: ProviderRequest):
         if not self._private(event):
@@ -839,6 +862,15 @@ class LongMemory(Star):
         uid = str(event.get_sender_id())
         text = (event.message_str or "").strip()
         try:
+            # 判断是否新的一段聊天（沉默较久）：用于决定是否刷新注入快照
+            fresh_session = True
+            try:
+                lu = self.load_rel(uid).get("last_user_at")
+                if lu:
+                    idle = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(lu)).total_seconds()
+                    fresh_session = idle >= float(self.cfg("ctx_refresh_idle_minutes", 30)) * 60
+            except Exception:
+                pass
             if text and not text.startswith("/"):
                 if self.cfg("memory_enabled", True):
                     self.record(uid, "user", text)
@@ -850,13 +882,7 @@ class LongMemory(Star):
                 r["msg_since_rel"] = int(r.get("msg_since_rel", 0)) + 1
                 self._clear_followup(r)
                 self.save_rel(uid, r)
-            ctx = ""
-            if self.cfg("memory_enabled", True):
-                ctx += self.context_text(uid)
-            if self.cfg("relationship_enabled", True):
-                ctx += self.relation_text(uid)
-            if self.cfg("faces_enabled", True) and event.get_platform_name() != "webchat":
-                ctx += FACE_NOTE
+            ctx = self._frozen_ctx(uid, event, fresh_session)
             if ctx:
                 req.system_prompt = (req.system_prompt or "") + ctx
                 logger.debug(f"[longmemory] 已注入上下文 uid={uid} len={len(ctx)}")
