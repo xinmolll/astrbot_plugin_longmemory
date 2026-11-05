@@ -131,7 +131,7 @@ def strip_fence(t: str) -> str:
     return m.group(0) if m else t
 
 
-@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.4.6")
+@register(PLUGIN, "苒信", "私聊长期记忆 + 每晚日记", "v1.4.7")
 class LongMemory(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -872,14 +872,16 @@ class LongMemory(Star):
 
     @filter.on_decorating_result()
     async def on_decorate(self, event: AstrMessageEvent):
-        """把 [face:N] 转成真正的 QQ Face；偶尔按语气补一个系统表情。"""
-        if not self.cfg("faces_enabled", True) or not self._private(event):
-            return
-        # webchat 不支持真正的 Face，跳过，避免测试污染
-        if event.get_platform_name() == "webchat":
+        """处理 [face:N] / 表情残留；关闭时只清洗，不发系统小黄豆。"""
+        if not self._private(event):
             return
         result = event.get_result()
         if not result or not getattr(result, "chain", None):
+            return
+        # webchat 不支持真正的 Face。系统表情开着时保持原文，避免测试污染；
+        # 关掉时仍要清掉 [face:N]，否则私聊里会露出编号明文。
+        webchat = event.get_platform_name() == "webchat"
+        if webchat and self.cfg("faces_enabled", True):
             return
         try:
             st_re = re.compile(r"\[sticker(?:[:：]\s*([^\]]{0,12}))?\]", re.I)
@@ -892,6 +894,7 @@ class LongMemory(Star):
                 r"|\b(?:CQ:face|CQ:image)[^\]]*\])",
                 re.I,
             )
+            face_re = re.compile(r"\[face[:：]\s*\d{1,4}\]", re.I)
             want = None
             for comp in result.chain:
                 if isinstance(comp, Plain) and comp.text:
@@ -900,10 +903,18 @@ class LongMemory(Star):
                         want = (m.group(1) or "").strip()
                     t = st_re.sub("", comp.text)
                     t = junk_re.sub("", t)
+                    # 关掉小黄豆时仍清掉残留 [face:N]，避免用户看到编号明文
+                    if not self.cfg("faces_enabled", True):
+                        t = face_re.sub("", t)
                     # 去掉末尾单独的数字编号
                     t = re.sub(r"[\s　]*\d{1,3}\s*$", "", t)
                     comp.text = t.strip()
             result.chain = [c for c in result.chain if not (isinstance(c, Plain) and not (c.text or "").strip())]
+            # 清洗之后不再发系统表情或收藏表情，避免 webchat 测试污染
+            if webchat:
+                return
+            if not self.cfg("faces_enabled", True) and not self.cfg("stickers_enabled", True):
+                return
             if self.cfg("stickers_enabled", True) and self.load_stickers()["items"]:
                 if want is None and random.random() < float(self.cfg("sticker_chance", 0.15)):
                     want = ""
@@ -914,7 +925,8 @@ class LongMemory(Star):
                         await self.send_sticker(event.unified_msg_origin, url)
                         await asyncio.sleep(random.uniform(0.25, 0.6))
                     return  # 有表情包就不再加系统表情
-            self._apply_faces(result)
+            if self.cfg("faces_enabled", True):
+                self._apply_faces(result)
         except Exception as e:
             logger.error(f"[longmemory] 表情处理失败: {e}")
 

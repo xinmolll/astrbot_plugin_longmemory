@@ -101,7 +101,7 @@
   },
   "faces_enabled": {
     "type": "bool",
-    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）",
+    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）。关闭后不发送系统表情，但仍会去掉私聊里残留的 [face:数字]。",
     "default": true
   },
   "face_chance": {
