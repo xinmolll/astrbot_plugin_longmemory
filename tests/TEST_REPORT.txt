@@ -1,0 +1,7 @@
+LongMemory v1.5.19
+Ran 39 tests (python3 -m unittest discover -s tests -t .) in ~0.04s
+OK
+Changes covered: memory merge/correction, config-driven core facts (empty by default),
+mood rate-limit and user-tail inject, learn decoupled from relation updates,
+backup-and-reset requires typing 确认清空, unset owner skips proactive/follow-up/diary.
+No personal memory or chat logs.

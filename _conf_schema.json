@@ -6,6 +6,13 @@
     "obvious_hint": true,
     "default": "（加载后自动填充）"
   },
+  "edit_relation_notes": {
+    "type": "text",
+    "description": "可编辑：关系笔记（改完点保存即生效）",
+    "hint": "直接改正文；保存后写入关系 JSON。末尾「——上次改写」元信息行可忽略，插件会自动去掉。建议不超过 1200 字。改完务必保存；勾选立即刷新也会回写本框。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
   "view_latest_diary": {
     "type": "text",
     "description": "【只读】最近日记（今天及最近几篇）",
@@ -13,12 +20,55 @@
     "obvious_hint": true,
     "default": "（加载后自动填充）"
   },
-  "view_memory": {
+  "edit_diary_day": {
+    "type": "string",
+    "description": "可编辑日记的日期（YYYY-MM-DD，空=今天 Asia/Shanghai）",
+    "hint": "指定要改哪一天的日记；留空则改今天。改完正文后务必保存。",
+    "default": ""
+  },
+  "edit_diary": {
     "type": "text",
-    "description": "【只读】长期记忆摘要（偏好 / 事实 / 口吻）",
-    "hint": "自动同步已整理的长期记忆条目摘要。",
+    "description": "可编辑：单日日记正文（改完点保存即生效，不发 QQ）",
+    "hint": "填写完整 markdown（可含 # YYYY-MM-DD 标题）。保存后写入 diaries，并锁定该日避免定时任务用聊天记录重写。不向 QQ 发送。勾选立即刷新也会回写本框。",
     "obvious_hint": true,
     "default": "（加载后自动填充）"
+  },
+  "resume_relation_auto": {
+    "type": "bool",
+    "description": "恢复关系笔记自动改写（手改后会暂停）",
+    "hint": "手改关系笔记后插件会暂停自动改写，避免删掉的内容被聊天记录加回。勾选并保存后恢复自动改写，然后自动取消勾选。",
+    "default": false
+  },
+  "scrub_chat_day": {
+    "type": "string",
+    "description": "清洗聊天记录的日期（YYYY-MM-DD，空=今天）",
+    "hint": "配合下方「清洗表白/名分相关聊天」使用。",
+    "default": ""
+  },
+  "scrub_today_chat": {
+    "type": "bool",
+    "description": "清洗该日聊天中的表白/名分/同意等回合（不发 QQ）",
+    "hint": "勾选并保存后，删除该日 jsonl 里命中关键词的用户/助手回合，保留学习、日常等普通内容；随后自动取消勾选并失效上下文。",
+    "default": false
+  },
+  "view_scrub_result": {
+    "type": "string",
+    "description": "【只读】最近一次聊天清洗结果",
+    "hint": "显示删除了多少行及日期。",
+    "default": ""
+  },
+  "edit_memory": {
+    "type": "text",
+    "description": "可编辑：长期记忆（改完点保存即生效，一行一条）",
+    "hint": "格式：## 偏好 / ## 事实 / ## 口吻 分段，每行一条正文（不要编号）。删除一行=忘掉；新增一行=写入（证据记为「手动编辑」）。改完务必保存。插件每分钟会读一次；保存触发重载时也会立刻生效。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
+  "view_memory": {
+    "type": "string",
+    "description": "【只读】长期记忆条数摘要",
+    "hint": "完整内容请到下方「可编辑：长期记忆」修改；本行仅显示条数。",
+    "default": ""
   },
   "view_updated_at": {
     "type": "string",
@@ -39,13 +89,19 @@
   },
   "learn_threshold": {
     "type": "int",
-    "description": "累计多少条未整理的用户消息后自动整理记忆",
-    "default": 4
+    "description": "累计多少条未整理的用户消息后自动整理记忆（越大越省后台调用）",
+    "default": 14
+  },
+  "core_facts": {
+    "type": "text",
+    "description": "可选：补进长期记忆的核心事实（默认空，一行一条）",
+    "hint": "留空则不自动写入任何事实。需要时每行一条，可用「事实：」「偏好：」「口吻：」前缀指定分类，默认归入事实。例如称呼、重要日期、明确雷点，或用户选择分享的健康信息。用户已手动删除的条目不会被加回。",
+    "default": ""
   },
   "inject_diaries": {
     "type": "int",
     "description": "对话时注入最近几篇日记（仅主人）",
-    "default": 2
+    "default": 1
   },
   "diary_enabled": {
     "type": "bool",
@@ -60,13 +116,11 @@
   "owner_id": {
     "type": "string",
     "description": "主人 QQ（日记取材对象，可用管理命令）",
-    "hint": "必填。留空时不主动发消息、不追问，也不写每晚日记。",
     "default": ""
   },
   "diary_session": {
     "type": "string",
     "description": "写日记时用来选模型/人格的会话 ID",
-    "hint": "建议填写，例如 napcat:FriendMessage:你的QQ号。留空时若已配置主人 QQ，则退回该私聊会话或已保存的会话。",
     "default": ""
   },
   "send_diary_to_owner": {
@@ -87,12 +141,12 @@
   "proactive_min_hours": {
     "type": "float",
     "description": "主动消息最短间隔（小时）",
-    "default": 0.5
+    "default": 1.0
   },
   "proactive_max_hours": {
     "type": "float",
     "description": "主动消息最长间隔（小时）",
-    "default": 1.0
+    "default": 3.0
   },
   "proactive_max_unanswered": {
     "type": "int",
@@ -101,7 +155,7 @@
   },
   "faces_enabled": {
     "type": "bool",
-    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）。关闭后不发送系统表情，但仍会去掉私聊里残留的 [face:数字]。",
+    "description": "偶尔用QQ系统表情（约15%，也可由模型输出[face:数字]）",
     "default": true
   },
   "face_chance": {
@@ -111,8 +165,8 @@
   },
   "relation_update_every": {
     "type": "int",
-    "description": "每多少条用户私聊后改写一次关系笔记",
-    "default": 3
+    "description": "每多少条用户私聊后改写一次关系笔记（与记忆整理解耦）",
+    "default": 40
   },
   "stickers_enabled": {
     "type": "bool",
@@ -167,18 +221,98 @@
   "ctx_refresh_idle_minutes": {
     "description": "沉默多少分钟后算新一段聊天并刷新注入内容",
     "type": "int",
-    "default": 30,
+    "default": 45,
     "hint": "同一段聊天内记忆/关系笔记的注入保持不变，提高模型前缀缓存命中、省钱"
   },
   "ctx_refresh_max_hours": {
     "description": "注入内容最长多少小时强制刷新一次",
     "type": "int",
-    "default": 3
+    "default": 6
   },
   "followup_check_minutes": {
     "description": "他多少分钟没回才判断话题是否没聊完",
     "type": "float",
     "default": 1.5,
     "hint": "不再每条回复都判断，省 token；需小于追问最短等待时间"
+  },
+  "baidu_backup_enabled": {
+    "type": "bool",
+    "description": "启用百度网盘每日备份",
+    "hint": "开启前请填写 AppKey/Secret，并私聊机器人发送 /backup bind 完成授权。备份写入你网盘「我的应用数据/{应用名}/astrbot-backup/」。",
+    "obvious_hint": true,
+    "default": false
+  },
+  "baidu_app_key": {
+    "type": "string",
+    "description": "百度 AppKey（开放平台应用）",
+    "hint": "在 pan.baidu.com/union 创建「个人使用」软件应用后复制 AppKey。不要发到聊天里。",
+    "default": ""
+  },
+  "baidu_app_secret": {
+    "type": "string",
+    "description": "百度 SecretKey（保密）",
+    "hint": "与 AppKey 成对；仅保存在本机插件配置，不会进 GitHub。",
+    "default": ""
+  },
+  "baidu_app_name": {
+    "type": "string",
+    "description": "网盘应用目录名（须与开放平台应用名称一致）",
+    "hint": "上传路径为 /apps/{此名称}/astrbot-backup/。改名前请与控制台应用名保持一致。",
+    "default": "AstrBot备份"
+  },
+  "baidu_backup_hour": {
+    "type": "int",
+    "description": "每日备份整点（Asia/Shanghai，0-23）",
+    "hint": "到点打包 chats/memory/relation/diaries 等并上传；失败则随后几小时各重试一次（最多3次）。",
+    "default": 3
+  },
+  "view_baidu_backup": {
+    "type": "text",
+    "description": "【只读】百度网盘备份状态",
+    "hint": "显示是否已绑定、上次成功/失败。绑定请私聊发 /backup bind；不会自动开绑以免刷屏。",
+    "obvious_hint": true,
+    "default": "（加载后自动填充）"
+  },
+  "force_invalidate_ctx": {
+    "type": "bool",
+    "description": "强制失效对话冻结上下文（勾选保存后生效）",
+    "hint": "勾选并保存后，清空当前主人的冻结前缀缓存，下次私聊会按最新关系笔记/记忆重建注入；然后自动取消勾选。改关系笔记后若她仍按旧设定回，可勾一次。",
+    "default": false
+  },
+  "view_invalidate_result": {
+    "type": "string",
+    "description": "【只读】最近一次强制失效结果",
+    "hint": "显示是否已清空冻结上下文及时间。",
+    "default": ""
+  },
+  "reset_confirm": {
+    "type": "string",
+    "description": "重置确认（填「确认清空」）",
+    "hint": "配合下方「备份并清空全部记忆」使用；执行后自动清空本框。",
+    "default": ""
+  },
+  "backup_and_reset_all": {
+    "type": "bool",
+    "description": "备份并清空全部记忆（人设不动，不发 QQ）",
+    "hint": "勾选且确认框填「确认清空」后保存：先把插件数据完整复制到服务器 plugin_data/astrbot_plugin_longmemory/backups/reset-时间戳/，校验文件数与大小一致后，清空长期记忆、关系笔记(含手改锁)、心情、日记、聊天记录和冻结上下文。平台对话历史需在对话管理里单独清空。",
+    "default": false
+  },
+  "view_reset_result": {
+    "type": "string",
+    "description": "【只读】最近一次备份并重置结果",
+    "hint": "显示备份目录与时间。",
+    "default": ""
+  },
+  "mood_update_every": {
+    "type": "int",
+    "description": "累计多少条用户消息后刷新短期心情（强情绪词可提前）",
+    "default": 4,
+    "hint": "心情不再每条回复都调模型；平静且无触发词时跳过。心情挂在 user 尾巴，不影响 system 前缀缓存。"
+  },
+  "bg_llm_provider": {
+    "type": "string",
+    "description": "后台任务（心情/学习/关系/日记/主动/追问）优先用的模型ID",
+    "default": "deepseek/deepseek-flash",
+    "hint": "留空则与主聊天同一模型；填 deepseek/deepseek-flash 可省额度。失败自动回落主模型。"
   }
 }
