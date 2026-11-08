@@ -17,3 +17,5 @@ data/
 .DS_Store
 about_owner.md
 about/
+baidu_tokens.json
+backups/
