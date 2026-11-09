@@ -1,46 +1,51 @@
+v1.5.8：百度网盘每日备份（xpan 设备码绑定；/backup bind|status|now；token 存插件数据目录）。
+v1.5.7：WebUI 可编辑长期记忆（edit_memory，保存写回 JSON；手动删除进 user_removed 防 learn 加回）。
+v1.5.6：健康信息可记（不说教）；事实去重+剔一时性+补核心；短期心情（易变尾巴，带小脾气）与 her_views（她自己的喜好）；processed 水位见 v1.5.5。
 # astrbot_plugin_longmemory
 私聊长期记忆（preferences/facts/style，每条带用户原话佐证）+ 每晚定时日记。移植自自制 QQ 机器人 memory.mjs。
-命令：/memory list | /memory forget <编号> | /memory clear | /memory learn | /memory relearn | /diary read [日期] | /diary write [日期] | /backup bind | /backup status | /backup now
+命令：/memory list | /memory forget <编号> | /memory clear | /memory learn | /memory relearn | /diary read [日期] | /diary write [日期]
 数据：data/plugin_data/astrbot_plugin_longmemory/
 
-## 安装
-在 AstrBot WebUI 的插件管理里选择「从仓库安装」，填入本仓库地址：
-
-https://github.com/xinmolll/astrbot_plugin_longmemory
-
-安装完成后重载插件或重启 AstrBot。本仓库的插件文件放在根目录，AstrBot 会直接从仓库根目录安装。
-
-## 必填设置
-主动找人、短时追问和每晚日记都只针对主人。**owner_id** 留空时，这三件事都不会发出。
-
-- **owner_id**：主人的 QQ 号。留空时跳过主动找人聊天、短时追问，以及每晚写日记。
-- **diary_session**：写日记、选择模型/人格时使用的会话 ID，格式如 `napcat:FriendMessage:你的QQ号`。默认留空。需要把写好的日记私聊发出去时再填，并打开「写完日记后私聊发给主人」。
-
-日记时间、是否把写好的日记私聊发给主人、主动消息的时间窗和间隔等，可按需要再改。
-
-可选 **core_facts**：一行一条，留空则不自动写入任何核心事实。可用「事实：」「偏好：」「口吻：」前缀。适合称呼、重要日期、明确不喜欢的事，或用户自己选择分享的健康信息。用户已经手动删除的条目不会被加回。
-
-## 固定背景
-可以把 `about_owner.md` 放在插件目录（与 `main.py` 同级），写入不会被自动整理覆盖的固定背景。聊天注入时，这份内容会放在长期记忆前面，只对主人生效。按用户区分的背景放在数据目录 `about/<用户ID>.md`。仓库不附带这份文件。
-
-## 更新
-v1.5.0：同一段聊天内（默认沉默 30 分钟算新一段，最长 3 小时）记忆、背景和关系笔记的注入保持不变，让 DeepSeek 等服务商的前缀缓存能命中，省 token；新记忆在下一段聊天生效。可用 ctx_refresh_idle_minutes / ctx_refresh_max_hours 调整。
-
-v1.5.1：话题是否聊完改为他隔一会儿（followup_check_minutes，默认 1.5 分钟）没回才判断，不再每条回复都调一次模型。
-
-v1.5.2：日记改为口语叙事（不写清单/配置）；注入记忆时附固定「记忆边界」短句；主动/追问改为许可式，可输出「（不说）」跳过。
-
-v1.5.3：减复读/穿帮——关系笔记不固化胡说；学习不把套话记入口吻；主动消息少叮嘱。
-
+v1.5.5：记忆改为合并写入（旧条目默认保留，可用 remove 纠正）；佐证匹配放宽并对照全部历史原话；processed 改为时间水位（不再按条数截断）；关系笔记分「长期印象/最近」防冲掉旧细节；默认 relation_update_every=20；首次加载自动回填记忆并修复关系笔记。
 v1.5.4：表白/喜欢相关回复收软——别用「我不能说」禁令腔，也不把这类胡说固化进关系笔记；不逼回那句。
 
-v1.5.5–v1.5.19：
+## v1.5.9
+- 关系提示中性化（不预设拉近/疏远）；关系笔记区分来源
+- 记忆纠正：相反极性不合并；明确纠正可更新；冲突待确认
+- 记忆/关系变更后立即失效上下文快照；心情按对话版本丢弃过期结果
+- ensure_core/forget 尊重 user_removed；百度备份小时 0 点可用
 
-- 记忆改为合并写入，旧条目默认保留；明确纠正可更新，相反极性不合并，说不清的冲突标成待确认。
-- 关系笔记按来源分层（他明确表达过 / 她当时回复 / 近期互动判断 / 长期印象），不预设靠近或疏远。
-- 短期心情会随时间衰减，并对照对话版本，过期结果丢弃。
-- WebUI 可编辑长期记忆、关系笔记和单日日记；手改关系笔记后可暂停自动改写。
-- 「备份并清空全部记忆」必须在确认框输入「确认清空」才会执行：先完整备份到服务器，再清空记忆、关系笔记、心情、日记、聊天记录和冻结上下文。人设不动。
-- 主动消息微调：隔夜或隔了很久时更倾向一句短问候；模型选择「（不说）」时短间隔再试，不把整段节拍推走。
-- 上下文继续按段冻结，方便 DeepSeek 前缀缓存；易变的心情改挂在本轮 user 尾巴，不再写进 system。后台任务可单独指定模型。
-- 可选百度网盘每日备份（设备码绑定；/backup bind|status|now）。令牌只存在插件数据目录，不进仓库。
+## v1.5.20
+- 写入门控 write_gate：纯规则 allow/deny/skip，临时状态/打算/转述等不进长期事实
+- 问法别名 ask_alias：口语问法归一与轻量别名，方便按「他怎么问」检索记忆
+- 好感 affinity：分数 + 软阶段语气（最高「亲近」，无恋人档；不由分数自动升级交往）
+- 新增模块与测试：affinity.py / ask_alias.py / write_gate.py、tests/test_gate_affinity_alias.py
+
+## v1.5.19
+- 省额度 / 提高前缀缓存命中：心情限频（默认每 4 条用户消息，或强情绪词/隔很久才调）；心情改挂本轮 user 尾巴，不再拼进 system
+- 记忆整理与关系笔记改写解耦：learn 成功后不再自动 update_relation，只按 relation_update_every 触发
+- 后台 LLM（心情/学习/关系/日记/主动/追问）优先走 bg_llm_provider（默认 deepseek-flash），失败回落主模型
+- 推荐配置：proactive 1~3h、learn_threshold=14、inject_diaries=1、relation_update_every=40、ctx_refresh_idle=45min / max=6h
+
+## v1.5.17
+- 新增「备份并清空全部记忆」：确认框填「确认清空」后勾选保存，先完整备份插件数据到服务器 `backups/reset-时间戳/`（校验文件数/大小），再清空长期记忆、关系笔记(含手改锁)、心情、日记、聊天记录与冻结上下文；人设不动，不发 QQ。
+
+## v1.5.16
+- 关系笔记/注入提示：已确认的「试着交往」按她自己的立场回应；禁止「我没答应过/你自己改的不代表我点头/叫宝宝不算」类否认
+- 清洗关键词补充否认交往相关回合；称呼偏好不得用来否定交往
+
+## v1.5.13
+- WebUI 可强制失效冻结上下文（force_invalidate_ctx）；WebUI 可清洗单日聊天 jsonl（scrub_today_chat：去掉表白/名分/同意等相关回合，保留普通话题；失效上下文）
+
+## v1.5.12
+- WebUI 可编辑单日日记（edit_diary / edit_diary_day；写文件、锁定防重写、不发 QQ）
+- 手改关系笔记后暂停自动改写（resume_relation_auto 恢复）
+
+## v1.5.11
+- WebUI 可编辑关系笔记（edit_relation_notes，保存写回 relation JSON；去掉末尾 —— 元信息行）
+
+## v1.5.10
+- save_mem/save_rel 按内容签名失效上下文快照（时间戳/计数不触发）
+- pending_confirm 注入与编辑区可见；编辑只留一条则清除；明确纠正可确定性替换
+- 主动/追问：先复查过期再写「不说」或发送状态
+- 测试套件 tests/test_longmemory.py
