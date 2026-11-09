@@ -1,7 +1,3 @@
-LongMemory v1.5.19
-Ran 39 tests (python3 -m unittest discover -s tests -t .) in ~0.04s
-OK
-Changes covered: memory merge/correction, config-driven core facts (empty by default),
-mood rate-limit and user-tail inject, learn decoupled from relation updates,
-backup-and-reset requires typing 确认清空, unset owner skips proactive/follow-up/diary.
-No personal memory or chat logs.
+LongMemory v1.5.20
+Sanitized for GitHub: owner_id/diary_session defaults empty; no about_owner.md; no personal QQ defaults.
+New since v1.5.19: write_gate, ask_alias, affinity (+ tests/test_gate_affinity_alias.py).

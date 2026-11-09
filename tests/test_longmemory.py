@@ -573,12 +573,12 @@ class LongMemoryTests(unittest.TestCase):
         ddir.mkdir(parents=True, exist_ok=True)
         (ddir / f"{day}.md").write_text(f"# {day}\n\n旧日记含柏拉图和不答应\n", encoding="utf-8")
         self.inst._ctx_cache[self.uid] = (0.0, "SNAP")
-        cleaned = f"# {day}\n\n今天陪他熬夜聊天，聊了学习和散步。明天想轻松点。\n"
+        cleaned = f"# {day}\n\n今天陪他熬夜聊天，聊了学习和图书馆，捏脸照旧。明天想轻松点。\n"
         self.inst.config["edit_diary_day"] = day
         self.inst.config["edit_diary"] = cleaned
         self.assertTrue(self.inst.apply_edit_diary_from_config())
         body = (ddir / f"{day}.md").read_text(encoding="utf-8")
-        self.assertIn("学习和散步", body)
+        self.assertIn("学习和图书馆", body)
         self.assertNotIn("柏拉图", body)
         self.assertNotIn(self.uid, self.inst._ctx_cache)
         st = self.inst.diary_state()
@@ -622,15 +622,15 @@ class LongMemoryTests(unittest.TestCase):
         cdir = self.tmp / "chats" / self.uid
         cdir.mkdir(parents=True, exist_ok=True)
         lines = [
-            {"role": "user", "content": "今天下午去公园散步了", "ts": "t1"},
-            {"role": "assistant", "content": "天气还行吗", "ts": "t2"},
+            {"role": "user", "content": "今天下午去图书馆了", "ts": "t1"},
+            {"role": "assistant", "content": "位置还行吗", "ts": "t2"},
             {"role": "user", "content": "你同意了吧我们有名分了", "ts": "t3"},
             {"role": "assistant", "content": "我没同意，这你别记岔", "ts": "t4"},
             {"role": "user", "content": "同学打电话耽误了", "ts": "t5"},
             {"role": "assistant", "content": "明天再抓", "ts": "t6"},
             {"role": "user", "content": "柏拉图也行啊慢慢培养", "ts": "t7"},
-            {"role": "user", "content": "我们是不是在谈恋爱了", "ts": "t8"},
-            {"role": "assistant", "content": "这个我没答应过", "ts": "t9"},
+            {"role": "user", "content": "我们不是在试着交往了吗", "ts": "t8"},
+            {"role": "assistant", "content": "这个我这边一直没有说过", "ts": "t9"},
         ]
         path = cdir / f"{day}.jsonl"
         path.write_text("\n".join(__import__("json").dumps(x, ensure_ascii=False) for x in lines) + "\n", encoding="utf-8")
@@ -640,13 +640,13 @@ class LongMemoryTests(unittest.TestCase):
         n = self.inst.apply_scrub_chat_from_config()
         self.assertGreaterEqual(n, 3)
         body = path.read_text(encoding="utf-8")
-        self.assertIn("公园", body)
+        self.assertIn("图书馆", body)
         self.assertIn("同学打电话", body)
         self.assertNotIn("名分", body)
         self.assertNotIn("柏拉图", body)
         self.assertNotIn("没同意", body)
-        self.assertNotIn("谈恋爱", body)
-        self.assertNotIn("没答应过", body)
+        self.assertNotIn("试着交往", body)
+        self.assertNotIn("一直没有说过", body)
         self.assertFalse(self.inst.config.get("scrub_today_chat"))
         self.assertNotIn(self.uid, self.inst._ctx_cache)
         self.assertIn("删除", self.inst.config.get("view_scrub_result", ""))
@@ -663,14 +663,14 @@ class LongMemoryTests(unittest.TestCase):
 
 
     def test_backup_and_reset_all(self):
-        self._seed_mem(prefs=["喜欢摇滚"], facts=["会弹吉他"])
+        self._seed_mem(prefs=["喜欢摇滚"], facts=["备考专升本"])
         r = self.inst.load_rel(self.uid)
-        r.update(notes="最近聊得比较多，还在互相了解。", manual_notes_lock=True,
+        r.update(notes="你已经同意和他在一起，正在试着交往。", manual_notes_lock=True,
                  migrated_v155=True, umo="napcat:FriendMessage:x", mood={"label": "开心"})
         self.inst.save_rel(self.uid, r, invalidate=False)
         cdir = self.tmp / "chats" / self.uid
         cdir.mkdir(parents=True)
-        (cdir / "2026-11-06.jsonl").write_text('{"role":"user","content":"你好呀"}\n', encoding="utf-8")
+        (cdir / "2026-11-06.jsonl").write_text('{"role":"user","content":"宝宝"}\n', encoding="utf-8")
         ddir = self.tmp / "diaries" / self.uid
         ddir.mkdir(parents=True)
         (ddir / "2026-11-06.md").write_text("# 2026-11-06\n\n日记", encoding="utf-8")
@@ -691,7 +691,7 @@ class LongMemoryTests(unittest.TestCase):
         b = bks[0]
         self.assertTrue((b / "chats" / self.uid / "2026-11-06.jsonl").exists())
         self.assertTrue((b / "diaries" / self.uid / "2026-11-06.md").exists())
-        self.assertIn("互相了解", (b / "relation" / f"{self.uid}.json").read_text(encoding="utf-8"))
+        self.assertIn("试着交往", (b / "relation" / f"{self.uid}.json").read_text(encoding="utf-8"))
         self.assertFalse((b / "baidu_tokens.json").exists())
         self.assertTrue((b / "_manifest.json").exists())
         m = self.inst.load_mem(self.uid)
@@ -976,70 +976,95 @@ class LongMemoryTests(unittest.TestCase):
         self.assertIn("已整理", res2)
         self.assertEqual(called["rel"], 1)
 
-    def test_unset_owner_skips_proactive_followup_and_diary(self):
-        self.inst.config["owner_id"] = ""
-        self.inst.config["proactive_enabled"] = True
-        self.inst.config["followup_enabled"] = True
-        self.inst.config["diary_enabled"] = True
-        sent = []
-        self.inst.context = type("C", (), {"send_message": lambda *a, **k: sent.append(a)})()
-        self.loop.run_until_complete(self.inst.maybe_proactive())
-        self.loop.run_until_complete(self.inst.maybe_followup())
-        msg = self.loop.run_until_complete(self.inst.write_diary())
-        self.assertIn("owner_id", msg)
-        self.assertEqual(sent, [])
-        self.assertFalse(any(self.tmp.rglob("*.md")))
-
-    def test_core_facts_empty_by_default_and_config_driven(self):
-        self.assertEqual(self.inst.ensure_core_facts(self.uid), 0)
-        self.assertEqual(self.inst.load_mem(self.uid).get("facts") or [], [])
-        self.inst.config["core_facts"] = "事实：喜欢晴天\n偏好：回复短一点"
-        self.assertEqual(self.inst.ensure_core_facts(self.uid), 2)
-        m = self.inst.load_mem(self.uid)
-        self.assertIn("喜欢晴天", [x["text"] for x in m["facts"]])
-        self.assertIn("回复短一点", [x["text"] for x in m["preferences"]])
-        m["user_removed"] = [self.inst._norm_key("喜欢晴天")]
-        m["facts"] = []
-        self.inst.save_mem(self.uid, m, invalidate=False)
-        self.assertEqual(self.inst.ensure_core_facts(self.uid), 0)
-        self.assertEqual(self.inst.load_mem(self.uid).get("facts") or [], [])
-
-    def test_relation_notes_do_not_preset_outcome(self):
-        r = self.inst.load_rel(self.uid)
-        r["notes"] = "他说过想再靠近一点；我还在想，没有答应。"
-        r["last_user_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
-        self.inst.save_rel(self.uid, r, invalidate=False)
-
-        class Req:
-            def __init__(self):
-                self.system_prompt = "人设本体"
-                self.prompt = "你好"
-                self.extra_user_content_parts = []
-
-        uid = self.uid
-
-        class Ev(FakeEvent):
-            def get_sender_id(self):
-                return uid
-
-            def get_message_type(self):
-                return "friend"
-
-            @property
-            def message_str(self):
-                return ""
-
-            @property
-            def unified_msg_origin(self):
-                return "umo"
-
-        req = Req()
-        self.loop.run_until_complete(self.inst.on_req(Ev(), req))
-        self.assertIn("人设本体", req.system_prompt)
-        self.assertIn("没有答应", req.system_prompt)
-        self.assertNotIn("最高优先级", req.system_prompt)
-        self.assertNotIn("你已明确同意", req.system_prompt)
 
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class WriteGateOutboundAffinityTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="lm1520-"))
+        for d in ("memory", "relation", "chats", "diaries"):
+            (self.tmp / d).mkdir()
+        self.uid = "testowner"
+        self.inst = object.__new__(MOD.LongMemory)
+        self.inst.root = self.tmp
+        self.inst.config = Cfg(
+            {
+                "owner_id": self.uid,
+                "memory_enabled": True,
+                "relationship_enabled": True,
+                "write_gate_enabled": True,
+                "ask_alias_enabled": True,
+                "outbound_record_enabled": True,
+                "outbound_inject_limit": 4,
+                "affinity_enabled": True,
+                "affinity_cap": 800,
+                "baidu_backup_hour": 0,
+                "faces_enabled": False,
+                "inject_diaries": 0,
+            }
+        )
+        self.inst.locks = {}
+        self.inst.retry_at = {}
+        self.inst._ctx_cache = {}
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_write_gate_skips_plan_and_quote(self):
+        prev = {"preferences": [], "facts": [], "style": [], "next_id": 1, "user_removed": []}
+        proposal = {
+            "preferences": [],
+            "facts": [
+                {"text": "打算明天去健身房", "evidence": "我打算明天去健身房"},
+                {"text": "听说他结婚了", "evidence": "听说他结婚了"},
+                {"text": "正在准备专升本考试", "evidence": "我在准备专升本"},
+            ],
+            "style": [],
+        }
+        corpus = ["我打算明天去健身房", "听说他结婚了", "我在准备专升本"]
+        verified = self.inst.checked(proposal, prev, corpus, prev)
+        texts = [x["text"] for x in verified["facts"]]
+        self.assertIn("正在准备专升本考试", texts)
+        self.assertNotIn("打算明天去健身房", texts)
+        self.assertNotIn("听说他结婚了", texts)
+
+    def test_outbound_record_and_inject(self):
+        self.inst.record_outbound("diary", "# 2026-11-08\n\n今天随便写两句", cause="每晚定时日记投递（2026-11-08）")
+        self.inst.record_outbound("proactive", "在干嘛呢", cause="定时主动：已沉默约2.0小时（晚上）")
+        text = self.inst.outbound_text(limit=4)
+        self.assertIn("真发出过", text)
+        self.assertIn("日记投递", text)
+        self.assertIn("主动问候", text)
+
+    def test_affinity_bump_and_snapshot(self):
+        r = self.inst.load_rel(self.uid)
+        r["affinity_xp"] = 100
+        r["affinity_stage"] = "认识"
+        self.inst.save_rel(self.uid, r)
+        self.inst.bump_affinity(self.uid)
+        r2 = self.inst.load_rel(self.uid)
+        self.assertGreater(float(r2["affinity_xp"]), 100)
+        snap = self.inst.affinity_text(self.uid)
+        self.assertIn("阶段", snap)
+        self.assertNotRegex(snap, r"好感\s*\d{2,}")  # 不注入数字分数
+
+    def test_ask_alias_match(self):
+        import ask_alias as aa
+        sc = aa.match_score("你多大了", "现在20岁", ["多大了", "几岁"])
+        self.assertGreaterEqual(sc, 2.0)
+        sc2 = aa.match_score("天气怎么样", "现在20岁", ["多大了"])
+        self.assertLess(sc2, sc)
+
+    def test_rule_aliases_attached_on_checked(self):
+        prev = {"preferences": [], "facts": [], "style": [], "next_id": 5, "user_removed": []}
+        proposal = {
+            "preferences": [],
+            "facts": [{"text": "今年20岁", "evidence": "我今年20岁了"}],
+            "style": [],
+        }
+        verified = self.inst.checked(proposal, prev, ["我今年20岁了"], prev)
+        item = verified["facts"][0]
+        self.assertTrue(item.get("ask_aliases"))

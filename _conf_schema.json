@@ -48,7 +48,7 @@
   "scrub_today_chat": {
     "type": "bool",
     "description": "清洗该日聊天中的表白/名分/同意等回合（不发 QQ）",
-    "hint": "勾选并保存后，删除该日 jsonl 里命中关键词的用户/助手回合，保留学习、日常等普通内容；随后自动取消勾选并失效上下文。",
+    "hint": "勾选并保存后，删除该日 jsonl 里命中关键词的用户/助手回合，保留学习/图书馆等普通内容；随后自动取消勾选并失效上下文。",
     "default": false
   },
   "view_scrub_result": {
@@ -92,12 +92,6 @@
     "description": "累计多少条未整理的用户消息后自动整理记忆（越大越省后台调用）",
     "default": 14
   },
-  "core_facts": {
-    "type": "text",
-    "description": "可选：补进长期记忆的核心事实（默认空，一行一条）",
-    "hint": "留空则不自动写入任何事实。需要时每行一条，可用「事实：」「偏好：」「口吻：」前缀指定分类，默认归入事实。例如称呼、重要日期、明确雷点，或用户选择分享的健康信息。用户已手动删除的条目不会被加回。",
-    "default": ""
-  },
   "inject_diaries": {
     "type": "int",
     "description": "对话时注入最近几篇日记（仅主人）",
@@ -130,7 +124,7 @@
   },
   "relationship_enabled": {
     "type": "bool",
-    "description": "启用关系笔记（隐式的亲近感，随聊天慢慢变化）",
+    "description": "启用关系笔记（亲近感随真实聊天变化，不预设交往结果）",
     "default": true
   },
   "proactive_enabled": {
@@ -314,5 +308,43 @@
     "description": "后台任务（心情/学习/关系/日记/主动/追问）优先用的模型ID",
     "default": "deepseek/deepseek-flash",
     "hint": "留空则与主聊天同一模型；填 deepseek/deepseek-flash 可省额度。失败自动回落主模型。"
+  },
+  "view_affinity": {
+    "type": "string",
+    "description": "【只读】好感度阶段与分数摘要",
+    "hint": "分数只在面板显示；对话里只注入阶段名与语气，避免每轮改数字打穿前缀缓存。最高阶段为「亲近」，不自动升到恋人。",
+    "default": ""
+  },
+  "affinity_enabled": {
+    "type": "bool",
+    "description": "启用好感度（阶段+分数，随互动缓慢上涨）",
+    "hint": "注入语气参考；不预设表白/交往结果。可关闭。",
+    "default": true
+  },
+  "affinity_cap": {
+    "type": "float",
+    "description": "好感度上限",
+    "default": 800.0
+  },
+  "write_gate_enabled": {
+    "type": "bool",
+    "description": "启用写入门控（拒绝助手自述/转述/RP/临时状态/未兑现打算进长期事实）",
+    "default": true
+  },
+  "outbound_record_enabled": {
+    "type": "bool",
+    "description": "记录主动问候/追问/日记投递的出站内容与起因",
+    "hint": "注入时标明「真发出过」，避免否认自己发过日记。",
+    "default": true
+  },
+  "outbound_inject_limit": {
+    "type": "int",
+    "description": "对话中注入最近几条出站记录（0=不注入）",
+    "default": 4
+  },
+  "ask_alias_enabled": {
+    "type": "bool",
+    "description": "启用问法别名（学习时生成/规则补全；按当前问法轻量点名相关记忆）",
+    "default": true
   }
 }
